@@ -1,0 +1,14 @@
+{
+  "schemaVersion":1,
+  "cards":[{
+    "id":"example-game",
+    "kind":"Game",
+    "name":"格式示例（請改成自己的詞彙）",
+    "enabled":false,
+    "status":"Approved",
+    "profile":"",
+    "terms":[{"source":"黒波","target":"黑波","aliases":["クロナミ"],"note":"虛構名詞，僅示範資料格式","status":"Approved"}]
+  }],
+  "preCorrections":[{"source":"黒並み","target":"黒波","enabled":false,"status":"Approved"}],
+  "postCorrections":[]
+}

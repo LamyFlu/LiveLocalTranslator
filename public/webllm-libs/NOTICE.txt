@@ -1,0 +1,16 @@
+WebLLM 0.2.86 compiled model libraries from mlc-ai/binary-mlc-llm-libs.
+Runtime Apache-2.0 license: see THIRD-PARTY-NOTICES.txt
+
+Llama-3.1-8B-Instruct-q4f16_1-MLC
+https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_86/base/Llama-3_1-8B-Instruct-q4f16_1_cs1k-webgpu.wasm
+SHA256 e420cc1fedd986d03cc0af6ee2d0c665eaac718898d13e9138e7861ad1a93425
+
+Mistral-7B-Instruct-v0.3-q4f16_1-MLC
+https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_86/base/Mistral-7B-Instruct-v0.3-q4f16_1_cs1k-webgpu.wasm
+SHA256 eaaf2057af594cf6a7427904af7596096316c44bfdd9d787190f030fa7c96153
+
+Qwen3.5-4B-q4f16_1-MLC
+Compiled library: https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_86/base/Qwen3.5-4B-q4f16_1_cs1k-webgpu.wasm
+SHA256 552152bd76fd5432c6b88750a948ac44d038a3c570be6aa0f0e744067a9e2a25
+Original Qwen model (Apache-2.0): https://huggingface.co/Qwen/Qwen3.5-4B
+Pinned converted weights: https://huggingface.co/mlc-ai/Qwen3.5-4B-q4f16_1-MLC/tree/44b42469f9e192814bfd90440e3b377d89ba7a13

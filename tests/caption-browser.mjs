@@ -1,0 +1,15 @@
+import {chromium} from 'playwright';import path from 'node:path';import {writeFile} from 'node:fs/promises';import {freshProfile} from './fresh-profile.mjs';
+const report={at:new Date().toISOString(),scope:'Production subtitle.js in real Chrome, synthetic subtitle events; no inference'};
+const ctx=await chromium.launchPersistentContext(await freshProfile('caption-dwell'),{executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,ignoreDefaultArgs:['--disable-extensions'],args:['--enable-unsafe-extension-debugging']});
+try{
+ const cdp=await ctx.browser().newBrowserCDPSession(),{id}=await cdp.send('Extensions.loadUnpacked',{path:path.resolve('dist')});const control=await ctx.newPage();await control.goto(`chrome-extension://${id}/options.html`);
+ await ctx.route('https://caption.test/**',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><title>Caption fixture</title><body style="background:#14202c;color:white">Caption display fixture</body>'}));
+ const page=await ctx.newPage();await page.goto('https://caption.test/');await page.bringToFront();const targets=await cdp.send('Target.getTargets',{filter:[{}]});await cdp.send('Extensions.triggerAction',{id,targetId:targets.targetInfos.find(t=>t.type==='tab'&&t.url===page.url()).targetId});
+ const tabId=await control.evaluate(async()=> (await chrome.tabs.query({url:'https://caption.test/*'}))[0].id);
+ await control.evaluate(tabId=>chrome.scripting.executeScript({target:{tabId},files:['subtitle.js']}),tabId);
+ await page.evaluate(()=>{window.dwell={};const box=document.querySelector('#local-live-subtitle').shadowRoot.firstChild;new MutationObserver(()=>{const text=box.textContent,now=performance.now();if(text.includes('第一句譯文')&&!dwell.firstAt)dwell.firstAt=now;if(text.includes('第一句譯文')&&text.includes('第二句譯文')){dwell.stacked=true;dwell.order=text.indexOf('第一句譯文')<text.indexOf('第二句譯文');}if(dwell.firstAt&&!text.includes('第一句譯文')&&!dwell.goneAt)dwell.goneAt=now;}).observe(box,{childList:true,subtree:true,characterData:true});});
+ const send=caption=>control.evaluate(({tabId,caption})=>chrome.tabs.sendMessage(tabId,{type:'local-subtitle',...caption}),{tabId,caption});
+ await send({id:1,source:'original one'});await page.waitForTimeout(200);await send({id:1,source:'original one',translation:'第一句譯文'});await page.waitForTimeout(200);await send({id:2,source:'original two',translation:'第二句譯文'});
+ await page.waitForFunction(()=>window.dwell.goneAt,{timeout:5000});report.dwell=await page.evaluate(()=>({...dwell,visibleMs:dwell.goneAt-dwell.firstAt}));if(!report.dwell.stacked||!report.dwell.order||report.dwell.visibleMs<1490)throw Error('Caption dwell/stack failed');
+ await page.screenshot({path:'verification/caption-dwell.png'});await send({clear:true});if(!await page.locator('#local-live-subtitle').isHidden())throw Error('Clear failed');report.passed=true;
+}catch(e){report.error=e.stack;throw e;}finally{await writeFile('verification/caption-dwell.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));await ctx.close();}

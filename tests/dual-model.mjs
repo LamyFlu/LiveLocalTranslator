@@ -1,0 +1,18 @@
+import {chromium} from 'playwright';import {createServer} from 'node:http';import {readFile,writeFile} from 'node:fs/promises';import path from 'node:path';
+const root=path.resolve('dist');const server=createServer(async(req,res)=>{try{const f=path.resolve(root,'.'+new URL(req.url,'http://localhost').pathname);if(!f.startsWith(root+path.sep))throw Error('path');res.setHeader('Content-Type',f.endsWith('.wasm')?'application/wasm':'text/javascript');res.setHeader('Cross-Origin-Embedder-Policy','require-corp');res.setHeader('Cross-Origin-Opener-Policy','same-origin');res.end(await readFile(f));}catch{res.writeHead(404);res.end();}});await new Promise(r=>server.listen(43817,'127.0.0.1',r));
+const ctx=await chromium.launchPersistentContext(path.resolve('.gpu-profile'),{executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--enable-unsafe-webgpu']});
+try{const page=await ctx.newPage();await page.route('**/probe.html',r=>r.fulfill({body:'<!doctype html><title>Dual local models</title>',contentType:'text/html',headers:{'Cross-Origin-Embedder-Policy':'require-corp','Cross-Origin-Opener-Policy':'same-origin','Content-Security-Policy':"script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'"}}));await page.goto('http://127.0.0.1:43817/probe.html');
+ const result=await page.evaluate(async()=>{
+  function rpc(file,type){const worker=new Worker('/'+file,{type});const pending=new Map();let serial=0;worker.onmessage=({data:m})=>{const p=pending.get(m.rpc);if(p){clearTimeout(p.timer);pending.delete(m.rpc);m.error?p.reject(Error(m.error)):p.resolve(m.result);}};worker.onerror=e=>{for(const p of pending.values()){clearTimeout(p.timer);p.reject(Error(e.message));}};return {worker,call(type,data={}){return new Promise((resolve,reject)=>{const id=++serial;const timer=setTimeout(()=>reject(Error('model timeout')),600000);pending.set(id,{resolve,reject,timer});worker.postMessage({rpc:id,type,...data});});}};}
+  const a=rpc('asr-worker.js','module'),t=rpc('translation-worker.js','classic');
+  try{await a.call('load',{size:'tiny',language:'en'});await t.call('load',{model:'gemma2'});
+   const ac=new AudioContext({sampleRate:16000});const response=await fetch('https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav');const audio=await ac.decodeAudioData(await response.arrayBuffer());const pcm=audio.getChannelData(0).slice(0,64000);await ac.close();
+   const runs=[];for(let i=0;i<3;i++){
+    const start=performance.now();const [asr,translation]=await Promise.all([a.call('recognize',{audio:pcm,language:'en'}),t.call('translate',{prompt:'Translate Current into Traditional Chinese used in Taiwan. Output only translation. Glossary: Blackwave = 黑波. Current: Blackwave is playing a game with my fellow Americans.'})]);
+    runs.push({asr,translation,parallelElapsedMs:performance.now()-start});
+   }
+   const start=performance.now();const asr=await a.call('recognize',{audio:pcm,language:'en'});const endASR=performance.now();const translation=await t.call('translate',{prompt:'Translate into Traditional Chinese used in Taiwan. Output only translation. Current: '+asr.text});
+   return {scope:'real Chrome, two GPU models resident, 4s English recording; no live tabCapture',parallel:runs,sequential:{asr,translation,recognitionMs:endASR-start,totalInferenceMs:performance.now()-start}};
+  }finally{a.worker.terminate();t.worker.terminate();}
+ });console.log(JSON.stringify(result));await writeFile('verification/dual-model.json',JSON.stringify({date:new Date().toISOString(),result},null,2));
+}finally{await ctx.close();server.close();}

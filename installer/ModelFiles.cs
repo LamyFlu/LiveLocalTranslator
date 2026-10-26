@@ -1,0 +1,19 @@
+using System;using System.IO;using System.Linq;using System.Collections.Generic;using System.Text.RegularExpressions;
+// Model management is confined to direct model folders; never follows junctions.
+class ModelFiles {
+ static string Root=Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","models"));
+ static List<FileStream> Pins=new List<FileStream>();
+ static void Plain(string p){if((Directory.Exists(p)||File.Exists(p))&&(File.GetAttributes(p)&FileAttributes.ReparsePoint)!=0)throw new Exception("Model path cannot be a junction or symbolic link");}
+ static string Folder(string kind,string id){if(kind!="whisper"&&kind!="llm")throw new Exception("Unknown model kind");if(!Regex.IsMatch(id,@"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$")||id=="..")throw new Exception("Invalid model folder name");string p=Path.GetFullPath(Path.Combine(Root,kind,id));if(!p.StartsWith(Path.Combine(Root,kind)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))throw new Exception("Model path escapes root");Plain(Root);Plain(Path.Combine(Root,kind));Plain(p);return p;}
+ static void Collect(string dir,List<string> files,List<string> dirs){Plain(dir);foreach(string f in Directory.GetFiles(dir)){Plain(f);files.Add(f);}foreach(string d in Directory.GetDirectories(dir))Collect(d,files,dirs);dirs.Add(dir);}
+ public static IEnumerable<object> Inventory(){foreach(string kind in new[]{"whisper","llm"}){string parent=Path.Combine(Root,kind);Plain(Root);Plain(parent);if(!Directory.Exists(parent))continue;foreach(string dir in Directory.GetDirectories(parent)){string id=Path.GetFileName(dir);long bytes=0;string error=null;try{Folder(kind,id);var files=new List<string>();Collect(dir,files,new List<string>());bytes=files.Sum(f=>new FileInfo(f).Length);}catch(Exception e){error=e.Message;}yield return new{kind=kind,id=id,bytes=bytes,path=dir,error=error};}}}
+ public static object Pin(string whisper,string llm){Release();try{foreach(var pair in new[]{new[]{"whisper",whisper},new[]{"llm",llm}}){if(String.IsNullOrEmpty(pair[1]))continue;string folder=Folder(pair[0],pair[1]);if(!Directory.Exists(folder))throw new Exception("Model folder missing");Plain(Path.Combine(folder,".in-use.lock"));Pins.Add(new FileStream(Path.Combine(folder,".in-use.lock"),FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.ReadWrite));}return new{ok=true};}catch{Release();throw;}}
+ public static void EnsureSpace(long bytes){var drive=new DriveInfo(Path.GetPathRoot(Root));if(drive.AvailableFreeSpace<bytes+1024L*1024*1024)throw new Exception("磁碟可用空間不足，需保留至少 1GiB；下載進度會保留，不會自動重試");}
+ public static object Release(){foreach(var f in Pins)f.Dispose();Pins.Clear();return new{ok=true};}
+ public static object Delete(string kind,string id){string folder=Folder(kind,id);if(!Directory.Exists(folder))throw new Exception("Model folder missing");var files=new List<string>();var dirs=new List<string>();Collect(folder,files,dirs);long bytes=files.Sum(f=>new FileInfo(f).Length);
+  // Exclusive handles reject resident models and cross-profile downloads.
+  FileStream use=null,download=null;try{use=new FileStream(Path.Combine(folder,".in-use.lock"),FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None);download=new FileStream(Path.Combine(folder,".download.lock"),FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None);}catch{if(use!=null)use.Dispose();if(download!=null)download.Dispose();throw new Exception("模型正在使用或下載，請先釋放模型／取消下載（含其他 Chrome 設定檔）");}
+  try{foreach(string f in files)if(f!=Path.Combine(folder,".in-use.lock")&&f!=Path.Combine(folder,".download.lock"))File.Delete(f);foreach(string d in dirs)if(d!=folder)Directory.Delete(d);}finally{use.Dispose();download.Dispose();}
+  File.Delete(Path.Combine(folder,".in-use.lock"));File.Delete(Path.Combine(folder,".download.lock"));Directory.Delete(folder);return new{ok=true,bytes=bytes,id=id,kind=kind};
+ }
+}

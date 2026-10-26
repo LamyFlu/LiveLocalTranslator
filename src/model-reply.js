@@ -1,0 +1,1 @@
+export function cleanModelReply(text){const value=String(text||'').replace(/^\s*<think>\s*<\/think>\s*/,'').trim();if(/<\/?think>/i.test(value))throw Error('模型仍輸出思考內容，已停止顯示；請檢查 non-thinking 設定');if(!value)throw Error('模型未輸出譯文');return value;}

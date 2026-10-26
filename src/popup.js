@@ -1,0 +1,9 @@
+import {defaults} from './config.js';
+const $=s=>document.querySelector(s);
+async function call(type,data={}){const r=await chrome.runtime.sendMessage({to:'background',type,...data});if(r?.error)throw Error(r.error);return r;}
+async function refresh(){const {state:s={}}=await call('status');$('#status').textContent=s.error||s.message||'尚未載入模型';$('#prepare').disabled=!!(s.loading||s.running||s.ready||s.stopping);$('#start').disabled=!s.ready||s.running||s.stopping;$('#stop').disabled=!s.running||s.stopping;$('#release').disabled=!!s.stopping;$('#metrics').textContent=s.metrics?`最近句尾→辨識 ${Math.round(s.metrics.asrEndMs)}ms ｜翻譯 ${Math.round(s.metrics.translationMs||0)}ms ｜丟棄 ${s.metrics.dropped||0} 句`:'';}
+for(const name of ['prepare','start','stop','release'])$('#'+name).onclick=async()=>{try{$('#'+name).disabled=true;await call(name);await refresh();}catch(e){await refresh();$('#status').textContent=e.message;}};
+$('#options').onclick=()=>chrome.runtime.openOptionsPage();chrome.storage.onChanged.addListener((_,area)=>{if(area==='session')refresh();});refresh();
+
+async function quick(){const {settings={}}=await chrome.storage.local.get('settings');const current={...defaults,...settings};$('#quickMode').value=current.youtubeMode;$('#quickDelay').value=current.youtubeDelayMs/1000;$('#quickChat').value=String(current.chatTranslation);document.documentElement.dataset.quickReady='true';}
+$('#youtubeQuick').onsubmit=async e=>{e.preventDefault();try{const {settings={}}=await chrome.storage.local.get('settings');await call('saveSettings',{settings:{...defaults,...settings,youtubeMode:$('#quickMode').value,youtubeDelayMs:Number($('#quickDelay').value)*1000,chatTranslation:$('#quickChat').value==='true'}});await refresh();$('#status').textContent='YouTube 控制已套用；同步模式會重新緩衝';}catch(e){$('#status').textContent=e.message;}};quick();

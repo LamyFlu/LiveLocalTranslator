@@ -1,0 +1,18 @@
+import {chromium} from 'playwright';import path from 'node:path';import {readFile,writeFile} from 'node:fs/promises';
+const files=['jfk.wav','japanese-audio.wav','piano.wav','dog_barking.wav'];const fixtures=Object.fromEntries(await Promise.all(files.map(async name=>[name,(await readFile('verification/'+name)).toString('base64')])));
+const ctx=await chromium.launchPersistentContext(path.resolve('.speech-auto-profile'),{executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,ignoreDefaultArgs:['--disable-extensions'],args:['--enable-unsafe-extension-debugging']});const report={date:new Date().toISOString(),runs:[]};
+try{const cdp=await ctx.browser().newBrowserCDPSession();const {id}=await cdp.send('Extensions.loadUnpacked',{path:path.resolve('dist')});const page=await ctx.newPage();await page.goto(`chrome-extension://${id}/options.html`);
+ report.runs=await page.evaluate(async(fixtures)=>{
+  const port=chrome.runtime.connectNative('com.livelocaltranslator.files');const c=await new Promise((resolve,reject)=>{port.onMessage.addListener(m=>m.error?reject(Error(m.error)):resolve(m.result));port.onDisconnect.addListener(()=>reject(Error(chrome.runtime.lastError?.message)));port.postMessage({id:1,op:'hello'});});
+  const w=new Worker(chrome.runtime.getURL('asr-worker.js'),{type:'module'});let seq=0;const pending=new Map();w.onmessage=({data:m})=>{const p=pending.get(m.rpc);if(p){clearTimeout(p.timer);pending.delete(m.rpc);m.error?p.reject(Error(m.error)):p.resolve(m.result);}};const call=(type,data)=>new Promise((resolve,reject)=>{const rpc=++seq;const timer=setTimeout(()=>reject(Error('timeout')),120000);pending.set(rpc,{resolve,reject,timer});w.postMessage({rpc,type,...data});});
+  try{await call('load',{size:'large-v3-turbo',localId:'whisper-large-v3-turbo',localBase:c.baseUrl+'/models/whisper/',encoderDtype:'fp16',language:'auto-en-ja',speechFilter:'silero'});
+   const ac=new AudioContext({sampleRate:16000}),samples={};for(const[name,b64]of Object.entries(fixtures)){const data=Uint8Array.from(atob(b64),v=>v.charCodeAt(0));const decoded=await ac.decodeAudioData(data.buffer);samples[name]=decoded.getChannelData(0).slice(0,64000);}await ac.close();
+   const silence=new Float32Array(64000),tone=Float32Array.from({length:64000},(_,i)=>.08*Math.sin(2*Math.PI*440*i/16000));let seed=1;const noise=Float32Array.from({length:64000},()=>{seed=(1664525*seed+1013904223)>>>0;return .05*(seed/4294967296*2-1);});
+   const mixed=new Float32Array(samples['japanese-audio.wav'].length+samples['jfk.wav'].length);mixed.set(samples['japanese-audio.wav']);mixed.set(samples['jfk.wav'],samples['japanese-audio.wav'].length);
+   const cases=[['silence',silence],['tone',tone],['noise',noise],['piano',samples['piano.wav']],['dog',samples['dog_barking.wav']],['english',samples['jfk.wav']],['japanese',samples['japanese-audio.wav']],['english-again',samples['jfk.wav']],['mixed',mixed]];const out=[];for(const[name,audio]of cases){const result=await call('recognize',{audio,language:'auto-en-ja',vadThreshold:.5,minSpeechMs:160});out.push({name,...result});}return out;
+  }finally{w.terminate();port.disconnect();}
+ },fixtures);
+ for(const name of ['silence','tone','noise','piano'])if(!report.runs.find(r=>r.name===name)?.skipped)throw Error('Non-speech not filtered: '+name);
+ for(const[name,lang]of [['english','en'],['japanese','ja'],['english-again','en']]){const run=report.runs.find(r=>r.name===name);if(run?.skipped||run?.detectedLanguage!==lang||!run.text)throw Error('Speech/language failed: '+name);}
+ report.passed=true;
+}catch(e){report.error=e.stack;throw e;}finally{await writeFile('verification/speech-auto.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));await ctx.close();}

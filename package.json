@@ -1,0 +1,22 @@
+{
+  "name": "live-local-translator",
+  "version": "0.4.2",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.3.1",
+    "@litert-lm/core": "0.18.0",
+    "@mlc-ai/web-llm": "0.2.86",
+    "@ricky0123/vad-web": "0.0.31",
+    "onnxruntime-web": "1.31.0-dev.20260914-8d85527a0",
+    "opencc-js": "1.0.5"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "playwright": "1.64.1"
+  }
+}
