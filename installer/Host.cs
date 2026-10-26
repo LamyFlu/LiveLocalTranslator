@@ -25,8 +25,8 @@ class Host {
   static object Catalog(){
     var whisper=new List<object>();var llm=new List<object>();Directory.CreateDirectory(Models);
     string wr=Path.Combine(Models,"whisper"),lr=Path.Combine(Models,"llm");Directory.CreateDirectory(wr);Directory.CreateDirectory(lr);
-    foreach(var d in Directory.GetDirectories(wr)){if(IsReparse(d))continue;string onnx=Path.Combine(d,"onnx");string dtype=File.Exists(Path.Combine(onnx,"encoder_model.onnx"))?"fp32":File.Exists(Path.Combine(onnx,"encoder_model_fp16.onnx"))?"fp16":null;bool ok=File.Exists(Path.Combine(d,"config.json"))&&File.Exists(Path.Combine(d,"tokenizer.json"))&&dtype!=null&&File.Exists(Path.Combine(onnx,"decoder_model_merged_q4.onnx"));whisper.Add(new{id=Path.GetFileName(d),ready=ok,encoderDtype=dtype,files=Directory.GetFiles(d,"*",SearchOption.AllDirectories).Length});}
-    foreach(var d in Directory.GetDirectories(lr)){if(IsReparse(d)||ModelDownloads.Contains(Path.GetFileName(d)))continue;foreach(var f in Directory.GetFiles(d,"*-web.litertlm")){llm.Add(new{id=Path.GetFileName(d),file=Path.GetFileName(f),ready=true,bytes=new FileInfo(f).Length});}}
+    foreach(var d in Directory.GetDirectories(wr)){if(IsReparse(d))continue;string onnx=Path.Combine(d,"onnx");string dtype=File.Exists(Path.Combine(onnx,"encoder_model.onnx"))?"fp32":File.Exists(Path.Combine(onnx,"encoder_model_fp16.onnx"))?"fp16":null;bool ok=File.Exists(Path.Combine(d,"preprocessor_config.json"))&&File.Exists(Path.Combine(d,"tokenizer_config.json"))&&File.Exists(Path.Combine(d,"generation_config.json"))&&File.Exists(Path.Combine(d,"config.json"))&&File.Exists(Path.Combine(d,"tokenizer.json"))&&dtype!=null&&File.Exists(Path.Combine(onnx,"decoder_model_merged_q4.onnx"));whisper.Add(new{id=Path.GetFileName(d),ready=ModelDownloads.InstallationReady(Path.GetFileName(d),ok),encoderDtype=dtype,files=Directory.GetFiles(d,"*",SearchOption.AllDirectories).Length});}
+    foreach(var d in Directory.GetDirectories(lr)){if(IsReparse(d)||ModelDownloads.Contains(Path.GetFileName(d)))continue;foreach(var f in Directory.GetFiles(d,"*-web.litertlm")){llm.Add(new{id=Path.GetFileName(d),file=Path.GetFileName(f),ready=ModelDownloads.InstallationReady(Path.GetFileName(d),true),bytes=new FileInfo(f).Length});}}
     llm.AddRange(ModelDownloads.ModelsList());
     return new{root=Models,whisper=whisper,llm=llm,inventory=ModelFiles.Inventory()};
   }
@@ -47,7 +47,7 @@ class Host {
       Listener=new TcpListener(IPAddress.Loopback,0);Listener.Start();Task.Run((Action)Accept);
       var input=Console.OpenStandardInput();while(true){int len=BitConverter.ToInt32(ReadExactly(input,4),0);if(len<1||len>1024*1024)throw new Exception("Invalid native message length");var m=Json().Deserialize<Dictionary<string,object>>(Encoding.UTF8.GetString(ReadExactly(input,len)));object id=m.ContainsKey("id")?m["id"]:null;
         try{string op=m["op"].ToString();object result;
-          if(op=="hello"||op=="list")result=new{version="0.4.2",baseUrl="http://127.0.0.1:"+((IPEndPoint)Listener.LocalEndpoint).Port+"/token/"+Token,models=Catalog()};
+          if(op=="hello"||op=="list")result=new{version="0.4.3",downloadCatalogVersion=2,baseUrl="http://127.0.0.1:"+((IPEndPoint)Listener.LocalEndpoint).Port+"/token/"+Token,models=Catalog()};
           else if(op=="pinModels")result=ModelFiles.Pin(m["whisperId"].ToString(),m["llmId"].ToString());
           else if(op=="unpinModels")result=ModelFiles.Release();
           else if(op=="deleteModel")result=ModelFiles.Delete(m["kind"].ToString(),m["modelId"].ToString());

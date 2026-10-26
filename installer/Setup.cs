@@ -11,7 +11,7 @@ using System.Web.Script.Serialization;
 using Microsoft.Win32;
 
 class Setup {
-  const string Product="LiveLocalTranslator",Version="0.4.2";
+  const string Product="LiveLocalTranslator",Version="0.4.3";
   const string NativeName="com.livelocaltranslator.files";
   static string DefaultRoot=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),Product);
   static string UninstallKey="Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\"+Product;

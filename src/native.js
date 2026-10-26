@@ -12,8 +12,8 @@ export async function installedModelConnection(settings){
   const connection=await nativeCall('hello');
   const w=connection.models.whisper.find(m=>m.id===(settings.localWhisperId||`whisper-${settings.asr}`)&&m.ready);
   const large=largeModel(settings.translator);const isWeb=large?.backend==='webllm';const l=connection.models.llm.find(m=>m.id===(settings.localLlmId||(large?large.id:settings.translator==='gemma4'?'gemma-4-E4B':'gemma-4-E2B'))&&m.ready);
-  if(!w)throw Error('找不到完整的 Whisper 模型。請開啟模型資料夾並依指南匯入，或從舊版搬移快取');
-  if(settings.translator!=='chrome'&&!l)throw Error(large?'找不到完整 LLM 模型，請先在設定一鍵下載對應模型':'找不到 LLM 模型。請依指南將 web.litertlm 放進 models\\llm');
+  if(!w)throw Error('Whisper 模型尚未下載或不完整。請在設定啟用「暖機時下載缺少模型」，或按「下載目前 Whisper」');
+  if(settings.translator!=='chrome'&&!l)throw Error(large?'找不到完整 LLM 模型，請先在設定一鍵下載對應模型':'LLM 模型尚未下載，請在設定啟用暖機自動下載，或按「下載目前 LLM」');
   if(isWeb&&l?.backend!=='webllm')throw Error('目前選到 LiteRT 模型資料夾，請改為 WebLLM 對應模型或「自動選取」');
   if(!isWeb&&settings.translator!=='chrome'&&l?.backend==='webllm')throw Error('目前選到 WebLLM 資料夾，請選對應的 WebLLM 引擎');
   return {whisperBase:connection.baseUrl+'/models/whisper/',whisperId:w.id,encoderDtype:w.encoderDtype,llmId:l?.id,llmUrl:l&&!isWeb?connection.baseUrl+'/models/llm/'+encodeURIComponent(l.id)+'/'+encodeURIComponent(l.file):null,webllm:isWeb?{id:large.id,modelBase:connection.baseUrl+'/models/llm/'+encodeURIComponent(l.id)+'/',library:chrome.runtime.getURL('webllm-libs/'+large.id+'.wasm')}:null,root:connection.models.root};

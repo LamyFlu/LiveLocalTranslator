@@ -1,5 +1,5 @@
 import {CHAT_MAX_PER_MINUTE} from './chat-policy.js';
-export const defaults={language:'ja',asr:'tiny',translator:'gemma2',silenceMs:220,threshold:0.012,profile:'default',speechMode:'adaptive',maxSegmentMs:8000,modelSource:'installed',localWhisperId:'',localLlmId:'',memoryPreset:'custom',debugMode:false,speechFilter:'silero',vadThreshold:.5,minSpeechMs:160,youtubeMode:'live',youtubeDelayMs:6000,chatTranslation:false,chatEngine:'llm',chatLanguage:'ja',chatMaxPerMinute:2000,contextMode:'none',chinaModelAcknowledged:false};
+export const defaults={language:'ja',asr:'tiny',translator:'gemma2',silenceMs:220,threshold:0.012,profile:'default',speechMode:'adaptive',maxSegmentMs:8000,modelSource:'installed',autoDownloadModels:true,localWhisperId:'',localLlmId:'',memoryPreset:'custom',debugMode:false,speechFilter:'silero',vadThreshold:.5,minSpeechMs:160,youtubeMode:'live',youtubeDelayMs:6000,chatTranslation:false,chatEngine:'llm',chatLanguage:'ja',chatMaxPerMinute:2000,contextMode:'none',chinaModelAcknowledged:false};
 export const gpuPresets={
   '4':{asr:'tiny',translator:'chrome',speechMode:'adaptive',maxSegmentMs:6000,silenceMs:260},
   '6':{asr:'tiny',translator:'gemma2',speechMode:'adaptive',maxSegmentMs:6000,silenceMs:220},
@@ -30,7 +30,7 @@ export function validateSettings(s={}){
   if((out.translator.startsWith('mlc-')||out.translator==='gemma12')&&out.modelSource!=='installed')throw Error('較大 LLM 需使用安裝目錄模型來源');
   if(![true,false,'true','false'].includes(out.debugMode))throw Error('不支援的除錯模式設定');out.debugMode=out.debugMode===true||out.debugMode==='true';
   for(const key of ['localWhisperId','localLlmId']){out[key]=String(out[key]||'');if(out[key]&&!/^[a-zA-Z0-9._-]{1,100}$/.test(out[key]))throw Error('模型資料夾名稱僅支援英數、點、底線及連字號');}
-  for(const key of ['chatTranslation','chinaModelAcknowledged']){if(![true,false,'true','false'].includes(out[key]))throw Error('不支援的開關設定');out[key]=out[key]===true||out[key]==='true';}
+  for(const key of ['chatTranslation','chinaModelAcknowledged','autoDownloadModels']){if(![true,false,'true','false'].includes(out[key]))throw Error('不支援的開關設定');out[key]=out[key]===true||out[key]==='true';}
   if(!['live','delayed'].includes(out.youtubeMode))throw Error('不支援的 YouTube 同步模式');
   out.youtubeDelayMs=Number(out.youtubeDelayMs);if(!Number.isFinite(out.youtubeDelayMs)||out.youtubeDelayMs<2000||out.youtubeDelayMs>10000)throw Error('YouTube 延遲需為 2000–10000ms');
   out.chatMaxPerMinute=Number(out.chatMaxPerMinute);if(!Number.isInteger(out.chatMaxPerMinute)||out.chatMaxPerMinute<1||out.chatMaxPerMinute>CHAT_MAX_PER_MINUTE)throw Error('聊天室每分鐘上限需為 1–2000');
